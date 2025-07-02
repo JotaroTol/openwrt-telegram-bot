@@ -63,8 +63,9 @@ Kami telah menyertakan skrip instalasi otomatis (`install.sh`) untuk pengalaman 
 
     ```bash
     cd /tmp
-    wget [https://raw.githubusercontent.com/JotaroTol/openwrt-telegram-bot/master/install.sh](https://raw.githubusercontent.com/JotaroTol/openwrt-telegram-bot/master/install.sh) -O install.sh
+    wget https://raw.githubusercontent.com/JotaroTol/openwrt-telegram-bot/master/install.sh -O install.sh
     chmod +x install.sh
+    ./install.sh
     ```
 
 2.  **Jalankan Skrip Instalasi:**
