@@ -82,7 +82,7 @@ Setelah instalasi selesai, layanan bot Telegram akan otomatis dimulai dan siap d
 
 ## ⚙️ Konfigurasi (Setelah Instalasi Otomatis)
 
-Jika Anda perlu mengubah pengaturan setelah instalasi, edit file `main.py` secara langsung di router Anda:
+Jika Anda perlu mengubah pengaturan setelah instalasi, edit file `openwrt-telegram-updater.py` secara langsung di router Anda:
 
 ```bash
-vi /opt/openwrt-telegram-bot/main.py
+vi /opt/openwrt-telegram-bot/openwrt-telegram-updater.py
