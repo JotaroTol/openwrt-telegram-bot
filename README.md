@@ -6,8 +6,13 @@
 [![GitHub stars](https://img.shields.io/github/stars/JotaroTol/openwrt-telegram-bot.svg?style=social)](https://github.com/JotaroTol/openwrt-telegram-bot/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/JotaroTol/openwrt-telegram-bot.svg?style=social)](https://github.com/JotaroTol/openwrt-telegram-bot/network/members)
 
-Bot Telegram berbasis Python ini dirancang khusus untuk berjalan di router **OpenWrt** (telah diuji pada firmware STB B860H v2 JotaroNet). Tujuannya adalah memonitor berbagai statistik penting router Anda, melacak perangkat yang terhubung, dan mengirimkan **notifikasi real-time** langsung ke obrolan Telegram Anda.
+Bot Telegram berbasis Python ini dirancang khusus untuk berjalan di router **OpenWrt** (telah diuji pada firmware Rey-re STB B860H v1). Tujuannya adalah memonitor berbagai statistik penting router Anda, melacak perangkat yang terhubung, dan mengirimkan **notifikasi real-time** langsung ke obrolan Telegram Anda.
 
+**Perangkat yang dibutuhkan:
+   *STB B860H/HG680p
+   *Modem Hi-Link
+      *Tested E5577 (beritahu jika modem lain works)
+      
 ---
 
 ## ✨ Fitur Utama
