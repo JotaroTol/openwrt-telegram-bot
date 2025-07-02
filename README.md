@@ -1,4 +1,3 @@
-cat << 'EOF' > README.md
 # OpenWrt Telegram Bot 🤖📡
 
 ---
