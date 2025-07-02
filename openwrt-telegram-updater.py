@@ -7,40 +7,25 @@ import subprocess
 import requests
 import re
 
-# --- KONFIGURASI TELEGRAM BOT ---
 TELEGRAM_BOT_TOKEN = ""
-TELEGRAM_CHAT_ID = "" # Chat ID untuk notifikasi perangkat tersambung
-
-# --- KONFIGURASI SISTEM STB ---
+TELEGRAM_CHAT_ID = ""
 POLLING_INTERVAL_SECS = 3
 INTERNET_CHECK_INTERVAL_SECS = 5
-DEVICE_CHECK_INTERVAL_SECS = 10 # Interval diperpanjang sedikit untuk stabilitas
+DEVICE_CHECK_INTERVAL_SECS = 10
 REQUEST_TIMEOUT_SECS = 10
-DISCONNECT_GRACE_PERIOD_SECS = 20 # Periode tenggang (detik) sebelum menyatakan perangkat terputus
-
-LAST_STATUS_FILE = "/tmp/inet_last_status.log"
+DISCONNECT_GRACE_PERIOD_SECS = 20LAST_STATUS_FILE = "/tmp/inet_last_status.log"
 DOWN_COUNT_FILE = "/tmp/inet_down_count.log"
-CONNECTED_DEVICES_FILE = "/tmp/connected_devices.json" # File untuk menyimpan daftar perangkat tersambung
+CONNECTED_DEVICES_FILE = "/tmp/connected_devices.json"
 
 PING_TARGET = "www.gstatic.com"
 NAS_PATH = "/mnt/nas"
 PING_INTERFACE = "utun"
 LAN_IFACE = "br-lan"
 MAIN_IFACE = "br-lan"
-
-# --- PATH KE SKRIP 3ginfo-lite ---
-# Pastikan jalur ini sesuai dengan lokasi skrip shell Anda.
 TG_3GINFO_LITE_SCRIPT = "/usr/share/3ginfo-lite/3ginfo.sh"
-
-# --- Variabel Global untuk Debounce Perangkat Terputus ---
-# Menyimpan perangkat yang saat ini hilang, menunggu konfirmasi terputus
-# Format: {mac_address: {'device_info': {...}, 'timestamp': waktu_hilang_pertama}}
 _stale_devices_awaiting_disconnection = {}
 
-
-# --- Fungsi Pembantu ---
 def format_uptime(seconds):
-    """Mengubah detik menjadi format uptime yang mudah dibaca (hari, jam, menit)."""
     if not seconds: return "0m"
     days = seconds // 86400
     seconds %= 86400
@@ -54,14 +39,12 @@ def format_uptime(seconds):
     return result.strip()
 
 def format_bytes_to_mb_gb(b):
-    """Mengubah byte menjadi MB atau GB."""
     if not b: return "0 MB"
     b = float(b)
     if b >= 1073741824: return f"{b / 1073741824:.2f} GB"
     else: return f"{b / 1048576:.0f} MB"
 
 def read_file_content(filepath, default_value=0, type_func=int):
-    """Membaca konten dari file, mengembalikan nilai default jika file tidak ada atau error."""
     try:
         with open(filepath, 'r') as f:
             return type_func(f.read().strip())
@@ -69,7 +52,6 @@ def read_file_content(filepath, default_value=0, type_func=int):
         return default_value
 
 def write_file_content(filepath, value):
-    """Menulis konten ke file."""
     try:
         with open(filepath, 'w') as f:
             f.write(str(value))
@@ -77,7 +59,6 @@ def write_file_content(filepath, value):
         print(f"Error writing to {filepath}: {e}", file=sys.stderr)
 
 def run_cmd(cmd):
-    """Menjalankan perintah shell dan mengembalikan outputnya."""
     try:
         return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.PIPE).strip()
     except subprocess.CalledProcessError as e:
@@ -86,10 +67,6 @@ def run_cmd(cmd):
         return ""
 
 def escape_markdown_v2(text):
-    """
-    Mengescape karakter khusus untuk MarkdownV2 di Telegram.
-    Lihat: https://core.telegram.org/bots/api#markdownv2-style
-    """
     chars_to_escape = '_*[]()~`>#+-=|{}.!\\' 
     escaped_text = ""
     for char in text:
@@ -100,22 +77,12 @@ def escape_markdown_v2(text):
     return escaped_text
 
 def send_telegram_message(chat_id, message):
-    """Mengirim pesan ke bot Telegram."""
-    if not chat_id or chat_id == "YOUR_TELEGRAM_CHAT_ID":
-        print("Error: TELEGRAM_CHAT_ID not configured. Cannot send proactive message.", file=sys.stderr)
-        return
-
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": message,
         "parse_mode": "MarkdownV2"
     }
-    print(f"\n--- DEBUG: Attempting to send message to Telegram ---", file=sys.stderr)
-    print(f"Chat ID: {chat_id}", file=sys.stderr)
-    print(f"Message Content (raw):\n{payload['text']}\n", file=sys.stderr)
-    print(f"---------------------------------------------------\n", file=sys.stderr)
-
     try:
         response = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT_SECS)
         response.raise_for_status()
@@ -126,14 +93,7 @@ def send_telegram_message(chat_id, message):
         print(f"Error sending message to Telegram: {e}. Full response: {e.response.text if e.response else 'N/A'}", file=sys.stderr)
 
 def get_connected_devices():
-    """
-    Mendapatkan daftar perangkat yang *dikenal* (dari DHCP leases dengan hostname valid)
-    DAN *aktif* (dikonfirmasi oleh ARP/Wi-Fi station).
-    Perangkat 'Unknown' atau yang tidak memiliki lease DHCP tidak akan ditampilkan.
-    """
     final_connected_devices = []
-    
-    # 1. Baca informasi DHCP leases untuk semua perangkat yang dikenal (dengan hostname)
     dhcp_leases_path = "/tmp/dhcp.leases"
     dhcp_known_devices_by_mac = {} 
     if os.path.exists(dhcp_leases_path):
@@ -160,11 +120,7 @@ def get_connected_devices():
                             }
         except Exception as e:
             print(f"Error reading dhcp.leases for known devices: {e}", file=sys.stderr)
-
-    # 2. Kumpulkan semua MAC yang saat ini aktif di jaringan (dari ARP & Wi-Fi station)
     active_macs_from_network = set()
-    
-    # Dari ip neigh show (ARP cache - hanya 'REACHABLE' atau 'PERMANENT')
     arp_neigh_output = run_cmd("ip neigh show")
     for line in arp_neigh_output.splitlines():
         match = re.search(r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+dev\s+\S+\s+lladdr\s+([0-9a-fA-F:]+)\s+(?:reachable|permanent)', line, re.IGNORECASE)
@@ -172,7 +128,6 @@ def get_connected_devices():
             mac_address = match.group(2).lower()
             active_macs_from_network.add(mac_address)
 
-    # Dari iw dev (Wi-Fi connected stations - untuk AP interfaces)
     iw_dev_output = run_cmd("iw dev")
     for iface_line in iw_dev_output.splitlines():
         if "Interface" in iface_line:
@@ -187,7 +142,6 @@ def get_connected_devices():
                         except IndexError:
                             pass
 
-    # 3. Gabungkan: hanya sertakan perangkat yang dikenal (dari DHCP) DAN aktif (dari ARP/Wi-Fi)
     for mac_address, dhcp_info in dhcp_known_devices_by_mac.items():
         if mac_address in active_macs_from_network:
             final_connected_devices.append(dhcp_info)
@@ -206,7 +160,6 @@ def get_connected_devices():
     return final_connected_devices
 
 def csq_to_bars(csq_value):
-    """Mengkonversi nilai CSQ (0-31) menjadi 5 bar ASCII bertingkat dan teks deskripsi."""
     
     num_bars = 0
     description = "Tidak terdeteksi"
@@ -252,7 +205,6 @@ def csq_to_bars(csq_value):
 
 
 def get_modem_info():
-    """Mengambil informasi modem dari skrip 3ginfo-lite."""
     modem_info = {
         "operator_name": "N/A",
         "signal_bars": "[     ]",
@@ -290,7 +242,6 @@ def get_modem_info():
 
 
 def get_stb_full_status():
-    """Mengumpulkan semua informasi status STB."""
     current_internet_status = "DOWN"
     if os.system(f"ping -c 1 -W 2 -I {PING_INTERFACE} {PING_TARGET} > /dev/null 2>&1") == 0:
         current_internet_status = "UP"
@@ -365,8 +316,6 @@ def get_stb_full_status():
 
     connected_devices = get_connected_devices()
     total_connected_devices = len(connected_devices)
-
-    # --- Ambil informasi modem ---
     modem_info = get_modem_info()
     operator_name = modem_info["operator_name"]
     signal_bars = modem_info["signal_bars"]
@@ -396,7 +345,6 @@ def get_stb_full_status():
     return message, current_internet_status, down_count
 
 def check_internet_status_and_notify():
-    """Memeriksa status internet dan mengirim notifikasi jika ada perubahan."""
     last_status_recorded = read_file_content(LAST_STATUS_FILE, default_value="UNKNOWN", type_func=str)
     down_count = read_file_content(DOWN_COUNT_FILE)
 
@@ -418,7 +366,6 @@ def check_internet_status_and_notify():
     write_file_content(LAST_STATUS_FILE, current_status)
 
 def load_connected_devices_state():
-    """Memuat daftar perangkat yang tersambung sebelumnya dari file."""
     if os.path.exists(CONNECTED_DEVICES_FILE):
         try:
             with open(CONNECTED_DEVICES_FILE, 'r') as f:
@@ -429,7 +376,6 @@ def load_connected_devices_state():
     return []
 
 def save_connected_devices_state(devices):
-    """Menyimpan daftar perangkat yang tersambung saat ini ke file."""
     try:
         with open(CONNECTED_DEVICES_FILE, 'w') as f:
             json.dump(devices, f, indent=4) # Menambahkan indent untuk keterbacaan
@@ -437,7 +383,6 @@ def save_connected_devices_state(devices):
         print(f"Error saving connected devices state: {e}", file=sys.stderr)
 
 def check_new_device_connection_and_notify():
-    """Memeriksa perangkat baru yang tersambung dan mengirim notifikasi."""
     global _stale_devices_awaiting_disconnection # Deklarasikan penggunaan variabel global
     current_time = int(time.time())
 
@@ -446,26 +391,14 @@ def check_new_device_connection_and_notify():
 
     previous_macs = {d['mac'] for d in previous_devices}
     current_macs = {d['mac'] for d in current_devices}
-
-    # --- Debugging Status Perangkat ---
-    # print(f"DEBUG: Previous MACs: {previous_macs}", file=sys.stderr)
-    # print(f"DEBUG: Current MACs: {current_macs}", file=sys.stderr)
-    # print(f"DEBUG: Stale devices awaiting disconnection (before processing): {_stale_devices_awaiting_disconnection}", file=sys.stderr)
-    # --- Akhir Debugging ---
-
-    # 1. Deteksi Perangkat yang Potensi Tersambung Baru (muncul di current_macs tapi tidak di previous_macs)
-    #    dan Filter jika mereka baru saja terputus (ada di _stale_devices_awaiting_disconnection)
     potentially_new_device_macs = current_macs - previous_macs
     
     actual_new_device_macs_to_notify = set()
     for device_mac in potentially_new_device_macs:
         if device_mac in _stale_devices_awaiting_disconnection:
-            # Perangkat ini muncul kembali sebelum periode tenggang putus koneksi berakhir.
-            # Hapus dari _stale_devices_awaiting_disconnection dan JANGAN notifikasi sebagai "baru".
             del _stale_devices_awaiting_disconnection[device_mac]
             print(f"DEBUG: Device {device_mac} reconnected quickly (was stale), skipping 'new device' notification.", file=sys.stderr)
         else:
-            # Ini adalah perangkat yang benar-benar baru (belum pernah terlihat atau sudah lama hilang)
             actual_new_device_macs_to_notify.add(device_mac)
 
     if actual_new_device_macs_to_notify:
@@ -481,13 +414,9 @@ def check_new_device_connection_and_notify():
                     f"Lease: `{escape_markdown_v2(new_device.get('lease_time', 'N/A'))}`"
                 )
                 send_telegram_message(TELEGRAM_CHAT_ID, notification_message)
-    
-    # 2. Deteksi Perangkat yang Potensi Terputus (ada di previous_macs tapi tidak di current_macs)
-    #    dan Pindahkan ke daftar grace period jika belum ada
     just_disappeared_macs = previous_macs - current_macs
     for device_mac in just_disappeared_macs:
         if device_mac not in _stale_devices_awaiting_disconnection:
-            # Ambil info perangkat dari previous_devices
             info_for_stale = next((d for d in previous_devices if d['mac'] == device_mac), None)
             if info_for_stale:
                 _stale_devices_awaiting_disconnection[device_mac] = {
@@ -496,13 +425,10 @@ def check_new_device_connection_and_notify():
                 }
                 print(f"DEBUG: Device {device_mac} (Hostname: {info_for_stale.get('hostname', 'N/A')}) entered grace period.", file=sys.stderr)
 
-    # 3. Proses Perangkat di Daftar Grace Period
-    #    Kirim notifikasi putus jika periode tenggang habis, atau hapus jika sudah kembali
     macs_to_remove_from_stale = []
     for device_mac, stale_info in _stale_devices_awaiting_disconnection.items():
-        if device_mac not in current_macs: # Masih tidak ada di current_macs
+        if device_mac not in current_macs:
             if (current_time - stale_info['timestamp']) >= DISCONNECT_GRACE_PERIOD_SECS:
-                # Periode tenggang habis, nyatakan terputus
                 disconnected_device = stale_info['device_info']
                 print(f"DEBUG: Device {device_mac} (Hostname: {disconnected_device.get('hostname', 'N/A')}) disconnected after grace period.", file=sys.stderr)
                 notification_message = (
@@ -513,25 +439,15 @@ def check_new_device_connection_and_notify():
                 )
                 send_telegram_message(TELEGRAM_CHAT_ID, notification_message)
                 macs_to_remove_from_stale.append(device_mac)
-        # else: (Kondisi ini sudah ditangani di bagian 1: actual_new_device_macs_to_notify)
-        #       Perangkat muncul kembali di current_macs, batalkan status stale
-        #       macs_to_remove_from_stale.append(device_mac) # Ini sudah dilakukan di bagian 1
-            
-    # Hapus perangkat dari _stale_devices_awaiting_disconnection yang sudah diproses
-    # (baik karena notifikasi putus dikirim, atau karena kembali dalam periode tenggang)
     for mac in macs_to_remove_from_stale:
         del _stale_devices_awaiting_disconnection[mac]
-
-    # Simpan status perangkat saat ini untuk perbandingan selanjutnya
     save_connected_devices_state(current_devices)
 
 
-# --- Loop Utama Bot Polling ---
 last_update_id = 0
 last_internet_check_time = 0
 last_device_check_time = 0
 
-# Inisialisasi awal connected_devices.json saat bot pertama kali dijalankan
 if not os.path.exists(CONNECTED_DEVICES_FILE):
     print("Initializing connected devices file...", file=sys.stderr)
     initial_devices = get_connected_devices()
