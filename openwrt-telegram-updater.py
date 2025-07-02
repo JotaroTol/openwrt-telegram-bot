@@ -8,8 +8,8 @@ import requests
 import re
 
 # --- KONFIGURASI TELEGRAM BOT ---
-TELEGRAM_BOT_TOKEN = "7867980254:AAFFxIpIjE944ZAHlmIoppJh5Q2TUmzA-3A"
-TELEGRAM_CHAT_ID = "943167718" # Chat ID untuk notifikasi perangkat tersambung
+TELEGRAM_BOT_TOKEN = ""
+TELEGRAM_CHAT_ID = "" # Chat ID untuk notifikasi perangkat tersambung
 
 # --- KONFIGURASI SISTEM STB ---
 POLLING_INTERVAL_SECS = 3
